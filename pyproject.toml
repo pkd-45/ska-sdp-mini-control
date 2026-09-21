@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sdpctl"
+version = "0.1.0"
+description = "Mini control system for the SKAO SDP second-stage interview exercise"
+requires-python = ">=3.11"
+dependencies = [
+  "PyYAML>=6.0",
+  "numpy>=1.26",
+  "astropy>=6.0",
+  "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+sdpctl = "sdpctl.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

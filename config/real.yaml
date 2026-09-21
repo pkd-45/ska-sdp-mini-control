@@ -1,0 +1,18 @@
+# Real supplied SKAO mock container, tuned for the validated local demo.
+data_root: ./workspace-real
+storage_threshold: 2GiB
+observation_reservation: 1300MiB
+max_parallel_processing: 2
+max_processing_attempts: 1
+tick_interval: 0.5
+runner: container
+container_executable: docker
+container_image: docker.io/pw410/ska-sdp-mock:0.1
+observe_script: /scripts/generate_visibilities.sh
+process_script: /scripts/process_visibilities.sh
+max_observations: 3
+watchdog_interval: 2.0
+reservation_overrun_action: abort
+fake_observation_size: 20MiB
+fake_observation_delay: 0.05
+fake_processing_delay: 0.05

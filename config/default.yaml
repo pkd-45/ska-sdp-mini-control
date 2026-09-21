@@ -1,0 +1,17 @@
+data_root: ./workspace
+storage_threshold: 10GiB
+observation_reservation: 1300MiB
+max_parallel_processing: 3
+max_processing_attempts: 1
+tick_interval: 0.5
+runner: fake
+container_executable: docker
+container_image: docker.io/pw410/ska-sdp-mock:0.1
+observe_script: /scripts/generate_visibilities.sh
+process_script: /scripts/process_visibilities.sh
+max_observations: 5
+watchdog_interval: 2.0
+reservation_overrun_action: abort
+fake_observation_size: 20MiB
+fake_observation_delay: 0.05
+fake_processing_delay: 0.05
