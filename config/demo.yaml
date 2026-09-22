@@ -1,0 +1,18 @@
+# Fast fake-runner demo of storage backpressure, parallel processing and QA.
+data_root: ./workspace-demo
+storage_threshold: 64MiB
+observation_reservation: 24MiB
+max_parallel_processing: 2
+max_processing_attempts: 1
+tick_interval: 0.2
+runner: fake
+container_executable: docker
+container_image: docker.io/pw410/ska-sdp-mock:0.1
+observe_script: /scripts/generate_visibilities.sh
+process_script: /scripts/process_visibilities.sh
+max_observations: null
+watchdog_interval: 0.2
+reservation_overrun_action: abort
+fake_observation_size: 20MiB
+fake_observation_delay: 2.0
+fake_processing_delay: 8.0

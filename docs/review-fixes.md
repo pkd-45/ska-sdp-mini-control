@@ -1,5 +1,7 @@
 # Adversarial review fixes
 
+The review rounds documented here were AI-assisted. Claude produced the initial architecture proposal and later adversarial reviews; ChatGPT critiqued the design and implemented the controller and tests from the written specification and agreed design. I reproduced findings before accepting changes and made the final decisions. See [`development-process.md`](development-process.md) for the full workflow.
+
 This revision incorporates failures reproduced against the first working implementation.
 
 1. **QA validation before mutation:** `accept_run` checks run state, observation state, raw-data availability, and the no-other-active-run invariant before changing state. The store revalidates state inside the transaction.

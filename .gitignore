@@ -5,3 +5,4 @@ __pycache__/
 workspace/
 workspace-real/
 *.egg-info/
+workspace-demo/

@@ -78,6 +78,18 @@ def main(argv=None):
         for o in store.list_observations():
             extra = f" error={o.error!r}" if o.error else ""
             print(f"obs {o.id:06d} {o.state} size={o.size_bytes} reserved={o.reserved_bytes}{extra}")
+        for run in store.list_runs():
+            details = []
+            if run.exit_code is not None:
+                details.append(f"exit={run.exit_code}")
+            if run.qa_verdict:
+                details.append(f"qa={run.qa_verdict}")
+            suffix = f" {' '.join(details)}" if details else ""
+            output_dir = Path(run.output_prefix).parent
+            print(
+                f"run {run.id:06d} obs={run.observation_id:06d} attempt={run.attempt} "
+                f"{run.state} output={output_dir}{suffix}"
+            )
     elif args.cmd == "qa" and args.qcmd == "list":
         for x in list_qa_items(store):
             executions = store.run_execution_attempts(x.id)

@@ -19,7 +19,7 @@ A small, stateful controller for the SKAO second-stage interview assignment.
 - startup reconciliation: remove/await all managed containers first, quarantine partial raw data, delete partial derived products, resume accepted deletions, and mark unexplained missing raw data `INCONSISTENT`;
 - quarantine accounting/list/purge and operator resolution for inconsistent or wedged-deletion observations;
 - FakeRunner for fast tests and a configurable Docker/Podman-compatible ContainerRunner;
-- GitLab CI and Makefile test entry points.
+- GitHub Actions, GitLab CI, and Makefile test entry points.
 
 ## Assumptions
 
@@ -56,6 +56,46 @@ sdpctl --config config/default.yaml qa reprocess <RUN_ID>
 sdpctl --config config/default.yaml qa discard <RUN_ID>
 ```
 
+## Fast live demo
+
+`config/demo.yaml` demonstrates the complete control loop without depending on
+Docker during the interview. Processing is intentionally slower than observing.
+
+Start the controller:
+
+```bash
+sdpctl --config config/demo.yaml run
+```
+
+In a second terminal, refresh:
+
+```bash
+sdpctl --config config/demo.yaml status
+sdpctl --config config/demo.yaml qa list
+```
+
+With a fresh `workspace-demo`, the first three 20 MiB observations are admitted.
+The third admission is exactly on the boundary:
+`40 MiB stored + 24 MiB reservation = 64 MiB`. A fourth observation is held
+because its reservation would cross the threshold. Around the same point,
+`status` can show two processing runs `RUNNING` and a third `QUEUED` behind the
+parallelism cap.
+
+Accepting an `AWAITING_QA` run removes that observation's raw visibility and
+allows observing to resume. Reprocessing instead creates a new processing
+attempt while retaining the same raw visibility.
+
+## Design and development notes
+
+- [`docs/decisions/ADR-001-state-model.md`](docs/decisions/ADR-001-state-model.md) — observation versus processing-run state.
+- [`docs/decisions/ADR-002-storage-admission.md`](docs/decisions/ADR-002-storage-admission.md) — reservation-based backpressure.
+- [`docs/decisions/ADR-003-reconciliation.md`](docs/decisions/ADR-003-reconciliation.md) — restart recovery.
+- [`docs/decisions/ADR-004-safe-deletion.md`](docs/decisions/ADR-004-safe-deletion.md) — safe raw-data deletion.
+- [`docs/development-process.md`](docs/development-process.md) — development workflow and AI-tool attribution.
+- [`docs/review-fixes.md`](docs/review-fixes.md) — reproduced adversarial-review findings.
+- [`docs/docker-probe-results.md`](docs/docker-probe-results.md) — real-container measurements and end-to-end validation.
+- [`docs/RC1-validation.md`](docs/RC1-validation.md) — RC1 validation history.
+
 ## Real container runner
 
 Set `runner: container` and `container_executable: docker` (or `podman`) in YAML. The command uses the supplied image and scripts, deterministic names, and `sdpctl.managed=true` labels. Reconciliation discovers containers in running, created, and exited states (`ps -aq`) and removes them before touching their files.
@@ -83,6 +123,8 @@ sdpctl --config config/real.yaml qa list
 ```
 
 When a run reaches `AWAITING_QA`, inspect the generated `preview.png`, then either accept it or request reprocessing with the QA commands above.
+
+An `ACCEPTED` processing run is the QA-approved product for its observation. `status` lists every processing run with its observation id, attempt, state, and output directory, so accepted and superseded attempts remain visible after they leave `qa list`. Superseded product directories are retained as history; accepting a run removes raw visibility, not derived products.
 
 ## Storage accounting
 

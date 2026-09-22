@@ -1,8 +1,9 @@
+from dataclasses import replace
 from pathlib import Path
 import asyncio
 import pytest
 
-from sdpctl.config import Config, parse_bytes
+from sdpctl.config import Config, load_config, parse_bytes
 from sdpctl.models import ObservationState, RunState
 from sdpctl.qa import accept_run, discard_failed_run, list_qa_items, reprocess_run
 from sdpctl.reconcile import resolve_observation_drop, startup_reconcile
@@ -799,3 +800,77 @@ def test_default_config_uses_one_processing_attempt_for_deterministic_mock(tmp_p
         "observation_reservation: 1GiB\n"
     )
     assert load_config(cfg_path).max_processing_attempts == 1
+
+def test_all_shipped_configs_load():
+    config_dir = Path(__file__).resolve().parents[1] / "config"
+    paths = sorted(config_dir.glob("*.yaml"))
+    assert {p.name for p in paths} >= {"default.yaml", "real.yaml", "demo.yaml"}
+    for path in paths:
+        cfg = load_config(path)
+        assert cfg.storage_threshold > 0
+        assert cfg.observation_reservation > 0
+
+
+@pytest.mark.asyncio
+async def test_demo_config_admits_three_then_blocks_fourth(tmp_path):
+    demo_path = Path(__file__).resolve().parents[1] / "config" / "demo.yaml"
+    shipped = load_config(demo_path)
+    cfg = replace(
+        shipped,
+        data_root=tmp_path,
+        tick_interval=0.001,
+        watchdog_interval=0.001,
+        fake_observation_delay=0,
+        fake_processing_delay=0,
+    )
+    ensure_layout(tmp_path)
+    store = Store(tmp_path / "control.db")
+    runner = FakeRunner(cfg.fake_observation_size, 0, 0)
+    scheduler = Scheduler(cfg, store, runner)
+
+    await scheduler.run_until_idle()
+
+    observations = store.list_observations()
+    runs = store.list_runs()
+    assert len(observations) == 3
+    assert all(o.state == ObservationState.STORED for o in observations)
+    assert len(runs) == 3
+    assert all(r.state == RunState.AWAITING_QA for r in runs)
+
+    used, reserved = store.logical_storage()
+    assert used == parse_bytes("60MiB")
+    assert reserved == 0
+    assert used + cfg.observation_reservation > cfg.storage_threshold
+    assert not scheduler.can_admit()
+
+
+def test_status_lists_processing_runs(tmp_path, capsys):
+    from sdpctl.cli import main as cli_main
+
+    ensure_layout(tmp_path)
+    cfg_path = tmp_path / "status.yaml"
+    cfg_path.write_text(
+        f"data_root: {tmp_path}\n"
+        "storage_threshold: 64MiB\n"
+        "observation_reservation: 24MiB\n"
+        "runner: fake\n"
+        "max_observations: 1\n"
+    )
+
+    store = Store(tmp_path / "control.db")
+    oid = store.create_observation(
+        str(tmp_path / "observations" / "obs-000001.ms"),
+        reserved_bytes=0,
+    )
+    rid = store.create_run(
+        oid,
+        str(tmp_path / "products" / "obs-000001" / "run-001" / "product"),
+        str(tmp_path / "logs" / "process-000001-001.log"),
+    )
+
+    cli_main(["--config", str(cfg_path), "status"])
+    out = capsys.readouterr().out
+
+    assert rid == 1
+    assert "run 000001 obs=000001 attempt=1 QUEUED output=" in out
+    assert "products/obs-000001/run-001" in out
